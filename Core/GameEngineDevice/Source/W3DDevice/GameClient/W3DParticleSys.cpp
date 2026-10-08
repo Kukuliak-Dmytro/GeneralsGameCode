@@ -264,7 +264,8 @@ void W3DParticleSystemManager::doParticles(RenderInfoClass &rinfo)
 			RGBAArray[pointCount].Z = color->blue;
 			RGBAArray[pointCount].W = p->getAlpha();
 
-			angleArray[pointCount] = (uint8)(p->getAngle() * 255.0f / (2.0f * PI));
+			static const Real RAD_TO_BYTE_ANGLE = 255.0f / (2.0f * PI);
+			angleArray[pointCount] = (uint8)(p->getAngle() * RAD_TO_BYTE_ANGLE);
 
 			if (++pointCount == MAX_POINTS_PER_GROUP)
 			{
