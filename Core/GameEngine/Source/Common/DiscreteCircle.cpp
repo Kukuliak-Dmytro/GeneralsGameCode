@@ -74,13 +74,20 @@ void DiscreteCircle::generateEdgePairs(Int xCenter, Int yCenter, Int radius)
 	Int x = 0;
 	Int y = radius;
 	Int d = (1 - radius) << 1;
+	Int lastY = -1;
 
 	while (y >= 0) {
-		HorzLine hl;
-		hl.xStart = xCenter - x;
-		hl.xEnd		= xCenter + x;
-		hl.yPos		= yCenter + y;
-		m_edges.push_back(hl);
+		if (y == lastY && !m_edges.empty()) {
+			m_edges.back().xStart = xCenter - x;
+			m_edges.back().xEnd   = xCenter + x;
+		} else {
+			HorzLine hl;
+			hl.xStart = xCenter - x;
+			hl.xEnd   = xCenter + x;
+			hl.yPos   = yCenter + y;
+			m_edges.push_back(hl);
+			lastY = y;
+		}
 
 		if (d + y > 0) {
 			--y;
@@ -97,18 +104,5 @@ void DiscreteCircle::generateEdgePairs(Int xCenter, Int yCenter, Int radius)
 //-------------------------------------------------------------------------------------------------
 void DiscreteCircle::removeDuplicates()
 {
-	VecHorzLineIt it, nextIt;
-	for ( it = m_edges.begin(); it != m_edges.end(); /* empty */) {
-		nextIt = it;
-		++nextIt;
-		if (nextIt == m_edges.end()) {
-			break;
-		}
-
-		if (it->yPos == nextIt->yPos) {
-			it = m_edges.erase(it);
-		} else {
-			++it;
-		}
-	}
+	// Duplicate removal is now handled inline in generateEdgePairs to prevent vector erases
 }
