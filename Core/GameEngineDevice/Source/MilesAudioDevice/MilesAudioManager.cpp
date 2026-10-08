@@ -2275,6 +2275,17 @@ void MilesAudioManager::removeAllDisabledAudio()
 //-------------------------------------------------------------------------------------------------
 void MilesAudioManager::processRequestList()
 {
+	if (m_audioRequests.size() > 128)
+	{
+		// Drop stale sound requests if queue overflows during heavy explosions/artillery
+		while (m_audioRequests.size() > 64)
+		{
+			AudioRequest *oldReq = m_audioRequests.front();
+			m_audioRequests.pop_front();
+			deleteInstance(oldReq);
+		}
+	}
+
 	std::list<AudioRequest*>::iterator it;
 	for (it = m_audioRequests.begin(); it != m_audioRequests.end(); ) {
 		AudioRequest *req = (*it);
