@@ -202,6 +202,7 @@ public:
 	void quit(Bool toDesktop);
 	void clearGameData(Bool showScoreScreen = TRUE);														///< Clear the game data
 	void closeWindows();
+	void dumpMismatchDiagnostic();                                                                           ///< Writes detailed desync report to MismatchInfo.txt
 
 	void sendObjectCreated( Object *obj );
 	void sendObjectDestroyed( Object *obj );

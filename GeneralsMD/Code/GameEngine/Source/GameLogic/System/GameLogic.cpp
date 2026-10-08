@@ -191,8 +191,8 @@ static Waypoint * findNamedWaypoint(AsciiString name)
 	return nullptr;
 }
 
-// ------------------------------------------------------------------------------------------------
-// ------------------------------------------------------------------------------------------------
+#include <xmmintrin.h>
+
 void setFPMode()
 {
   // Set floating point round mode to CHOP, which only comes
@@ -213,6 +213,13 @@ void setFPMode()
 	newVal = (newVal & ~_MCW_PC) | (_PC_24   & _MCW_PC);
 
 	_controlfp(newVal, _MCW_PC | _MCW_RC);
+
+	// Synchronize SSE2 MXCSR rounding and denormal modes for deterministic network simulation across CPUs
+	unsigned int mxcsr = _mm_getcsr();
+	mxcsr = (mxcsr & ~_MM_ROUND_MASK) | _MM_ROUND_NEAREST;
+	mxcsr |= _MM_FLUSH_ZERO_ON; // Flush-to-Zero (FTZ: 0x8000)
+	mxcsr |= 0x0040;            // Denormals-are-Zero (DAZ: 0x0040)
+	_mm_setcsr(mxcsr);
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -2684,6 +2691,8 @@ void GameLogic::processCommandList( CommandList *list )
 
 		if (sawCRCMismatch)
 		{
+			dumpMismatchDiagnostic();
+
 #ifdef DEBUG_LOGGING
 			DEBUG_LOG(("CRC Mismatch - saw %d CRCs from %d players", m_cachedCRCs.size(), numPlayers));
 			for (CachedCRCMap::const_iterator crcIt = m_cachedCRCs.begin(); crcIt != m_cachedCRCs.end(); ++crcIt)
@@ -4256,6 +4265,137 @@ UnsignedInt GameLogic::getCRC( Int mode, AsciiString deepCRCFileName )
 		CRCGEN_LOG(("CRC for frame %d is 0x%8.8X", m_frame, theCRC));
 	}
 	return theCRC;
+}
+
+// ------------------------------------------------------------------------------------------------
+void GameLogic::dumpMismatchDiagnostic()
+{
+	if (!TheGlobalData)
+		return;
+
+	char prevbuf[_MAX_PATH];
+	char curbuf[_MAX_PATH];
+	snprintf(prevbuf, sizeof(prevbuf), "%sMismatchInfoPrev.txt", TheGlobalData->getPath_UserData().str());
+	snprintf(curbuf, sizeof(curbuf), "%sMismatchInfo.txt", TheGlobalData->getPath_UserData().str());
+
+	remove(prevbuf);
+	rename(curbuf, prevbuf);
+	remove(curbuf);
+
+	FILE *fp = fopen(curbuf, "w");
+	if (!fp)
+		return;
+
+	time_t rawtime;
+	time(&rawtime);
+	struct tm *timeinfo = localtime(&rawtime);
+	char timeStr[64];
+	if (timeinfo)
+		strftime(timeStr, sizeof(timeStr), "%Y-%m-%d %H:%M:%S", timeinfo);
+	else
+		strcpy(timeStr, "Unknown");
+
+	fprintf(fp, "=================================================================\n");
+	fprintf(fp, "  Command & Conquer Generals Zero Hour - Network Mismatch Report  \n");
+	fprintf(fp, "=================================================================\n");
+	fprintf(fp, "Timestamp:        %s\n", timeStr);
+	fprintf(fp, "Logic Frame:      %u\n", m_frame);
+	fprintf(fp, "Local Full CRC:   0x%08X\n", m_CRC);
+	fprintf(fp, "Random Seed CRC:  0x%08X\n", GetGameLogicRandomSeedCRC());
+	fprintf(fp, "\n------------------- Player CRC Summary -------------------\n");
+
+	for (CachedCRCMap::const_iterator crcIt = m_cachedCRCs.begin(); crcIt != m_cachedCRCs.end(); ++crcIt)
+	{
+		Player *player = ThePlayerList ? ThePlayerList->getNthPlayer(crcIt->first) : nullptr;
+		UnicodeString name = player ? player->getPlayerDisplayName() : UnicodeString(L"<UNKNOWN>");
+		Bool isLocal = player ? player->isLocalPlayer() : false;
+		fprintf(fp, "Player %d [%ls]%s: CRC = 0x%08X\n",
+			crcIt->first, name.str(), isLocal ? " (LOCAL)" : "", crcIt->second);
+	}
+
+	fprintf(fp, "\n---------------- Subsystem CRC Breakdown -----------------\n");
+
+	// 1. Objects CRC
+	UnsignedInt objectsCRC = 0;
+	Int objectCount = 0;
+	{
+		XferCRC *xfer = NEW XferCRC;
+		xfer->open("ObjectsCRC");
+		AsciiString marker = "MARKER:Objects";
+		xfer->xferAsciiString(&marker);
+		for (Object *obj = m_objList; obj; obj = obj->getNextObject())
+		{
+			xfer->xferSnapshot(obj);
+			objectCount++;
+		}
+		xfer->close();
+		objectsCRC = xfer->getCRC();
+		delete xfer;
+	}
+	fprintf(fp, "Objects CRC:          0x%08X (Total Active Objects: %d)\n", objectsCRC, objectCount);
+
+	// 2. Partition Manager CRC
+	UnsignedInt partitionCRC = 0;
+	if (ThePartitionManager)
+	{
+		XferCRC *xfer = NEW XferCRC;
+		xfer->open("PartitionCRC");
+		AsciiString marker = "MARKER:ThePartitionManager";
+		xfer->xferAsciiString(&marker);
+		xfer->xferSnapshot(ThePartitionManager);
+		xfer->close();
+		partitionCRC = xfer->getCRC();
+		delete xfer;
+	}
+	fprintf(fp, "PartitionManager CRC: 0x%08X\n", partitionCRC);
+
+	// 3. PlayerList CRC
+	UnsignedInt playerListCRC = 0;
+	if (ThePlayerList)
+	{
+		XferCRC *xfer = NEW XferCRC;
+		xfer->open("PlayerListCRC");
+		AsciiString marker = "MARKER:ThePlayerList";
+		xfer->xferAsciiString(&marker);
+		xfer->xferSnapshot(ThePlayerList);
+		xfer->close();
+		playerListCRC = xfer->getCRC();
+		delete xfer;
+	}
+	fprintf(fp, "PlayerList CRC:       0x%08X\n", playerListCRC);
+
+	// 4. AI CRC
+	UnsignedInt aiCRC = 0;
+	if (TheAI)
+	{
+		XferCRC *xfer = NEW XferCRC;
+		xfer->open("AICRC");
+		AsciiString marker = "MARKER:TheAI";
+		xfer->xferAsciiString(&marker);
+		xfer->xferSnapshot(TheAI);
+		xfer->close();
+		aiCRC = xfer->getCRC();
+		delete xfer;
+	}
+	fprintf(fp, "AI Engine CRC:        0x%08X\n", aiCRC);
+
+	fprintf(fp, "\n---------------- Sample Objects (Top 25) -----------------\n");
+	fprintf(fp, "%-8s %-32s %-12s %-10s %s\n", "ID", "Template Name", "Player", "Health %", "Position (X, Y, Z)");
+	Int sampleCount = 0;
+	for (Object *obj = m_objList; obj && sampleCount < 25; obj = obj->getNextObject(), ++sampleCount)
+	{
+		AsciiString tmplName = obj->getTemplate() ? obj->getTemplate()->getName() : AsciiString("<None>");
+		UnicodeString ownerName = (obj->getControllingPlayer()) ? obj->getControllingPlayer()->getPlayerDisplayName() : UnicodeString(L"<None>");
+		const Coord3D *pos = obj->getPosition();
+		Real hpPercent = obj->getBodyModule() ? (obj->getBodyModule()->getHealth() / obj->getBodyModule()->getMaxHealth() * 100.0f) : 100.0f;
+
+		fprintf(fp, "#%-7u %-32s %-12ls %-9.1f%% (%.2f, %.2f, %.2f)\n",
+			obj->getID(), tmplName.str(), ownerName.str(), hpPercent,
+			pos ? pos->x : 0.0f, pos ? pos->y : 0.0f, pos ? pos->z : 0.0f);
+	}
+
+	fprintf(fp, "=================================================================\n");
+	fclose(fp);
 }
 
 // ------------------------------------------------------------------------------------------------

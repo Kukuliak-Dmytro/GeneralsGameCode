@@ -48,8 +48,8 @@ if (NOT IS_VS6_BUILD)
         add_compile_options(/MP)
         # Enforce strict __cplusplus version
         add_compile_options(/Zc:__cplusplus)
-        # Enable MSVC Release optimizations & SSE2 SIMD vectorization
-        add_compile_options($<$<CONFIG:Release>:/O2> $<$<CONFIG:Release>:/Oi> $<$<CONFIG:Release>:/Ot> $<$<CONFIG:Release>:/arch:SSE2> $<$<CONFIG:Release>:/Gy>)
+        # Enable MSVC Release optimizations, deterministic IEEE-754 floats & SSE2 SIMD vectorization
+        add_compile_options($<$<CONFIG:Release>:/O2> $<$<CONFIG:Release>:/Oi> $<$<CONFIG:Release>:/Ot> $<$<CONFIG:Release>:/arch:SSE2> $<$<CONFIG:Release>:/fp:precise> $<$<CONFIG:Release>:/Gy>)
     else()
         add_compile_options(-Wsuggest-override)
     endif()
