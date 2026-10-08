@@ -42,6 +42,7 @@
 
 #include "matrix4.h"
 #include <assert.h>
+#include <xmmintrin.h>
 
 #include "WWLib/win.h"
 #include <d3d8types.h>
@@ -67,29 +68,25 @@ void Matrix4x4::Multiply(const Matrix4x4 &a,const Matrix4x4 &b,Matrix4x4 * res)
 	assert(res != &a);
 	assert(res != &b);
 
-	#define ROWCOL(i,j) a[i][0]*b[0][j] + a[i][1]*b[1][j] + a[i][2]*b[2][j] + a[i][3]*b[3][j]
+	__m128 row0 = _mm_loadu_ps(&b[0][0]);
+	__m128 row1 = _mm_loadu_ps(&b[1][0]);
+	__m128 row2 = _mm_loadu_ps(&b[2][0]);
+	__m128 row3 = _mm_loadu_ps(&b[3][0]);
 
-	(*res)[0][0] = ROWCOL(0,0);
-	(*res)[0][1] = ROWCOL(0,1);
-	(*res)[0][2] = ROWCOL(0,2);
-	(*res)[0][3] = ROWCOL(0,3);
+	for (int i = 0; i < 4; ++i)
+	{
+		__m128 a_i0 = _mm_set1_ps(a[i][0]);
+		__m128 a_i1 = _mm_set1_ps(a[i][1]);
+		__m128 a_i2 = _mm_set1_ps(a[i][2]);
+		__m128 a_i3 = _mm_set1_ps(a[i][3]);
 
-	(*res)[1][0] = ROWCOL(1,0);
-	(*res)[1][1] = ROWCOL(1,1);
-	(*res)[1][2] = ROWCOL(1,2);
-	(*res)[1][3] = ROWCOL(1,3);
+		__m128 res_i = _mm_add_ps(
+			_mm_add_ps(_mm_mul_ps(a_i0, row0), _mm_mul_ps(a_i1, row1)),
+			_mm_add_ps(_mm_mul_ps(a_i2, row2), _mm_mul_ps(a_i3, row3))
+		);
 
-	(*res)[2][0] = ROWCOL(2,0);
-	(*res)[2][1] = ROWCOL(2,1);
-	(*res)[2][2] = ROWCOL(2,2);
-	(*res)[2][3] = ROWCOL(2,3);
-
-	(*res)[3][0] = ROWCOL(3,0);
-	(*res)[3][1] = ROWCOL(3,1);
-	(*res)[3][2] = ROWCOL(3,2);
-	(*res)[3][3] = ROWCOL(3,3);
-
-	#undef ROWCOL
+		_mm_storeu_ps(&(*res)[i][0], res_i);
+	}
 }
 
 
