@@ -24,6 +24,10 @@ constexpr const UnsignedInt CELL_INFOS_TO_ALLOCATE = 120000;
 PathfindCellInfo *PathfindCellInfo::s_infoArray = nullptr;
 PathfindCellInfo *PathfindCellInfo::s_firstFree = nullptr;
 
+// Only garbage-collect once usage exceeds the original vanilla pool size (30000).
+// Below this the pool behaves exactly like vanilla and no scan is performed.
+constexpr const UnsignedInt CELL_INFO_RECYCLE_WATERMARK = CELL_INFOS_TO_ALLOCATE / 4;
+
 static UnsignedInt s_usedCount = 0;
 
 UnsignedInt PathfindCellInfo::getUsedCellInfoCount()
@@ -31,9 +35,15 @@ UnsignedInt PathfindCellInfo::getUsedCellInfoCount()
 	return s_usedCount;
 }
 
+/**
+ * Releases orphaned (leaked) cell infos back to the pool.
+ * WARNING: Must only be called while NO path search is in progress (e.g. at the end of
+ * Pathfinder::processPathfindQueue). During a search, freshly allocated infos (such as the
+ * goal cell's) look identical to orphans, and releasing them causes null dereferences.
+ */
 void PathfindCellInfo::recycleUnusedCellInfos()
 {
-	if (!s_infoArray)
+	if (!s_infoArray || s_usedCount < CELL_INFO_RECYCLE_WATERMARK)
 		return;
 
 	for (UnsignedInt i = 0; i < CELL_INFOS_TO_ALLOCATE; ++i)
@@ -110,12 +120,8 @@ void PathfindCellInfo::releaseCellInfos()
  */
 PathfindCellInfo *PathfindCellInfo::getACellInfo(PathfindCell *cell,const ICoord2D &pos)
 {
-	// Option 1 Fallback: If 50% capacity reached, recycle unused cell infos dynamically
-	if (s_usedCount >= (CELL_INFOS_TO_ALLOCATE * 50 / 100))
-	{
-		recycleUnusedCellInfos();
-	}
-
+	// NOTE: Do not recycle here. This is called mid-search, and recycling would release
+	// in-flight infos (e.g. the goal cell). Recycling is done at end of frame instead.
 	PathfindCellInfo *info = s_firstFree;
 	if (s_firstFree) {
 		DEBUG_ASSERTCRASH(s_firstFree->m_isFree, ("Should be freed."));

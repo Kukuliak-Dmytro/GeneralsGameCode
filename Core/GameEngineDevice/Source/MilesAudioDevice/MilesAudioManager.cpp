@@ -2277,12 +2277,21 @@ void MilesAudioManager::processRequestList()
 {
 	if (m_audioRequests.size() > 128)
 	{
-		// Drop stale sound requests if queue overflows during heavy explosions/artillery
-		while (m_audioRequests.size() > 64)
+		// Drop the oldest *play* requests if the queue overflows during heavy explosions/artillery.
+		// Stop/Pause requests are always kept, otherwise looping sounds could never be stopped.
+		std::list<AudioRequest*>::iterator dropIt = m_audioRequests.begin();
+		while (m_audioRequests.size() > 64 && dropIt != m_audioRequests.end())
 		{
-			AudioRequest *oldReq = m_audioRequests.front();
-			m_audioRequests.pop_front();
-			deleteInstance(oldReq);
+			AudioRequest *oldReq = (*dropIt);
+			if (oldReq->m_request == AR_Play)
+			{
+				deleteInstance(oldReq);
+				dropIt = m_audioRequests.erase(dropIt);
+			}
+			else
+			{
+				++dropIt;
+			}
 		}
 	}
 
