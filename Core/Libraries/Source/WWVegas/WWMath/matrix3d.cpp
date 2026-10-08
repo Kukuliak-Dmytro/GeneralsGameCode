@@ -64,6 +64,7 @@
 #include "matrix3.h"
 #include "matrix4.h"
 #include "quat.h"
+#include <xmmintrin.h>
 
 #include "WWLib/win.h"
 #include <d3d8types.h>
@@ -691,347 +692,29 @@ void Matrix3D::Multiply(const Matrix3D & A,const Matrix3D & B,Matrix3D * set_res
 {
 	assert(set_res != nullptr);
 
-	Matrix3D tmp;
-	const Matrix3D * Aptr;
+	__m128 row0 = _mm_loadu_ps(&B[0][0]);
+	__m128 row1 = _mm_loadu_ps(&B[1][0]);
+	__m128 row2 = _mm_loadu_ps(&B[2][0]);
 
-	// Check for aliased parameters, copy the 'A' matrix into a temporary if the
-	// result is going into 'A'. (in this case, this function is no better than
-	// the overloaded C++ operator...)
-	if (set_res == &A) {
-		tmp = A;
-		Aptr = &tmp;
-	} else {
-		Aptr = &A;
-	}
+	Matrix3D res;
 
-#ifdef ALLOW_TEMPORARIES
-	float tmp1,tmp2,tmp3;
-
-	tmp1 = B[0][0];
-	tmp2 = B[1][0];
-	tmp3 = B[2][0];
-
-	(*set_res)[0][0] = (*Aptr)[0][0]*tmp1 + (*Aptr)[0][1]*tmp2 + (*Aptr)[0][2]*tmp3;
-	(*set_res)[1][0] = (*Aptr)[1][0]*tmp1 + (*Aptr)[1][1]*tmp2 + (*Aptr)[1][2]*tmp3;
-	(*set_res)[2][0] = (*Aptr)[2][0]*tmp1 + (*Aptr)[2][1]*tmp2 + (*Aptr)[2][2]*tmp3;
-
-	tmp1 = B[0][1];
-	tmp2 = B[1][1];
-	tmp3 = B[2][1];
-
-	(*set_res)[0][1] = (*Aptr)[0][0]*tmp1 + (*Aptr)[0][1]*tmp2 + (*Aptr)[0][2]*tmp3;
-	(*set_res)[1][1] = (*Aptr)[1][0]*tmp1 + (*Aptr)[1][1]*tmp2 + (*Aptr)[1][2]*tmp3;
-	(*set_res)[2][1] = (*Aptr)[2][0]*tmp1 + (*Aptr)[2][1]*tmp2 + (*Aptr)[2][2]*tmp3;
-
-	tmp1 = B[0][2];
-	tmp2 = B[1][2];
-	tmp3 = B[2][2];
-
-	(*set_res)[0][2] = (*Aptr)[0][0]*tmp1 + (*Aptr)[0][1]*tmp2 + (*Aptr)[0][2]*tmp3;
-	(*set_res)[1][2] = (*Aptr)[1][0]*tmp1 + (*Aptr)[1][1]*tmp2 + (*Aptr)[1][2]*tmp3;
-	(*set_res)[2][2] = (*Aptr)[2][0]*tmp1 + (*Aptr)[2][1]*tmp2 + (*Aptr)[2][2]*tmp3;
-
-	tmp1 = B[0][3];
-	tmp2 = B[1][3];
-	tmp3 = B[2][3];
-
-	(*set_res)[0][3] = (*Aptr)[0][0]*tmp1 + (*Aptr)[0][1]*tmp2 + (*Aptr)[0][2]*tmp3 + (*Aptr)[0][3];
-	(*set_res)[1][3] = (*Aptr)[1][0]*tmp1 + (*Aptr)[1][1]*tmp2 + (*Aptr)[1][2]*tmp3 + (*Aptr)[1][3];
-	(*set_res)[2][3] = (*Aptr)[2][0]*tmp1 + (*Aptr)[2][1]*tmp2 + (*Aptr)[2][2]*tmp3 + (*Aptr)[2][3];
-#else
-	set_res->mul(*Aptr, B);
-#endif
-}
-
-#if 0
-void Matrix3D::Multiply(const Matrix3D & A,const Matrix3D & B,Matrix3D * set_res)
-{
-	assert(set_res != nullptr);
-
-	float tmp[12];
-// Check for aliased parameters, copy the 'A' matrix into a temporary if the
-// result is going into 'A'. (in this case, this function is no better than
-// the overloaded C++ operator...)
-
-/*	if (set_res == &A)
+	for (int i = 0; i < 3; ++i)
 	{
-		Matrix3D tmp;
-		Matrix3D * Aptr;
-		float tmp1,tmp2,tmp3;
-		tmp = A;
-		Aptr = &tmp;
+		__m128 a_i0 = _mm_set1_ps(A[i][0]);
+		__m128 a_i1 = _mm_set1_ps(A[i][1]);
+		__m128 a_i2 = _mm_set1_ps(A[i][2]);
+		__m128 trans = _mm_set_ps(A[i][3], 0.0f, 0.0f, 0.0f);
 
-		tmp1 = B[0][0];
-		tmp2 = B[1][0];
-		tmp3 = B[2][0];
+		__m128 res_i = _mm_add_ps(
+			_mm_add_ps(_mm_mul_ps(a_i0, row0), _mm_mul_ps(a_i1, row1)),
+			_mm_add_ps(_mm_mul_ps(a_i2, row2), trans)
+		);
 
-		(*set_res)[0][0] = (*Aptr)[0][0]*tmp1 + (*Aptr)[0][1]*tmp2 + (*Aptr)[0][2]*tmp3;
-		(*set_res)[1][0] = (*Aptr)[1][0]*tmp1 + (*Aptr)[1][1]*tmp2 + (*Aptr)[1][2]*tmp3;
-		(*set_res)[2][0] = (*Aptr)[2][0]*tmp1 + (*Aptr)[2][1]*tmp2 + (*Aptr)[2][2]*tmp3;
-
-		tmp1 = B[0][1];
-		tmp2 = B[1][1];
-		tmp3 = B[2][1];
-
-		(*set_res)[0][1] = (*Aptr)[0][0]*tmp1 + (*Aptr)[0][1]*tmp2 + (*Aptr)[0][2]*tmp3;
-		(*set_res)[1][1] = (*Aptr)[1][0]*tmp1 + (*Aptr)[1][1]*tmp2 + (*Aptr)[1][2]*tmp3;
-		(*set_res)[2][1] = (*Aptr)[2][0]*tmp1 + (*Aptr)[2][1]*tmp2 + (*Aptr)[2][2]*tmp3;
-
-		tmp1 = B[0][2];
-		tmp2 = B[1][2];
-		tmp3 = B[2][2];
-
-		(*set_res)[0][2] = (*Aptr)[0][0]*tmp1 + (*Aptr)[0][1]*tmp2 + (*Aptr)[0][2]*tmp3;
-		(*set_res)[1][2] = (*Aptr)[1][0]*tmp1 + (*Aptr)[1][1]*tmp2 + (*Aptr)[1][2]*tmp3;
-		(*set_res)[2][2] = (*Aptr)[2][0]*tmp1 + (*Aptr)[2][1]*tmp2 + (*Aptr)[2][2]*tmp3;
-
-		tmp1 = B[0][3];
-		tmp2 = B[1][3];
-		tmp3 = B[2][3];
-
-		(*set_res)[0][3] = (*Aptr)[0][0]*tmp1 + (*Aptr)[0][1]*tmp2 + (*Aptr)[0][2]*tmp3 + (*Aptr)[0][3];
-		(*set_res)[1][3] = (*Aptr)[1][0]*tmp1 + (*Aptr)[1][1]*tmp2 + (*Aptr)[1][2]*tmp3 + (*Aptr)[1][3];
-		(*set_res)[2][3] = (*Aptr)[2][0]*tmp1 + (*Aptr)[2][1]*tmp2 + (*Aptr)[2][2]*tmp3 + (*Aptr)[2][3];
-
-		return;
+		_mm_storeu_ps(&res[i][0], res_i);
 	}
-*/
 
-	__asm {
-		mov	ecx,B
-		fld	dword ptr [ecx+32]	// B[2][0]
-		mov	edx,A
-		lea	ebx,tmp
-		mov	eax,set_res
-		cmp	eax,edx
-		jne	not_equal
-		mov	eax,ebx
-not_equal:
-		fld	dword ptr [ecx+16]	//	B[1][0]
-		fld	dword ptr [ecx]		//	B[0][0]
-
-//		tmp1 = B[0][0];
-//		tmp2 = B[1][0];
-//		tmp3 = B[2][0];
-
-//		(*set_res)[0][0] = (*Aptr)[0][0]*tmp1 + (*Aptr)[0][1]*tmp2 + (*Aptr)[0][2]*tmp3;
-		fld			dword ptr [edx+8]		// A[0][2]
-		fmul			st(0),st(3)	// A[0][2] * B[2][0]
-		fld			dword ptr [edx+4]		// A[0][1]
-		fmul			st(0),st(3)	// A[0][1] * B[1][0]
-		fld			dword ptr [edx]			// A[0][0]
-		fmul			st(0),st(3)	// A[0][2] * B[0][0]
-		faddp			st(1),st(0)
-		faddp			st(1),st(0)
-		fstp			dword ptr [eax]			// res[0][0]
-
-//		(*set_res)[1][0] = A[1][0]*tmp1 + A[1][1]*tmp2 + A[1][2]*tmp3;
-		fld			dword ptr [edx+24]		// A[1][2]
-		fmul			st(0),st(3)	// A[1][2] * B[2][0]
-		fld			dword ptr [edx+20]		//	A[1][1]
-		fmul			st(0),st(3)	// A[1][1] * B[1][0]
-		fld			dword ptr [edx+16]		//	A[1][0]
-		fmul			st(0),st(3)	// A[1][0] * B[0][0]
-		faddp			st(1),st(0)
-		faddp			st(1),st(0)
-		fstp			dword ptr [eax+16]		//	res[1][0]
-
-//		(*set_res)[2][0] = A[2][0]*tmp1 + A[2][1]*tmp2 + A[2][2]*tmp3;
-
-		fld			dword ptr [edx+40]		//	A[2][2]
-		fmul			st(0),st(3)	// A[2][2] * B[2][0]
-		fld			dword ptr [edx+36]		//	A[2][1]
-		fmul			st(0),st(3)	// A[2][1] * B[1][0]
-		fld			dword ptr [edx+32]		// A[2][0]
-		fmul			st(0),st(3)	// A[2][0] * B[0][0]
-		faddp			st(1),st(0)
-		faddp			st(1),st(0)
-		fstp			dword ptr [eax+32]		//	res[2][0]
-
-//		tmp1 = B[0][1];
-//		tmp2 = B[1][1];
-//		tmp3 = B[2][1];
-		fstp			st(0)
-		fstp			st(0)
-		fstp			st(0)
-		fld			dword ptr [ecx+36]			//	B[2][1]
-		fld			dword ptr [ecx+20]			//	B[1][1]
-		fld			dword ptr [ecx+4]			//	B[0][1]
-
-//		(*set_res)[0][1] = (*Aptr)[0][0]*tmp1 + (*Aptr)[0][1]*tmp2 + (*Aptr)[0][2]*tmp3;
-		fld			dword ptr [edx+8]			//	A[0][2]
-		fmul			st(0),st(3)		// A[0][2] * B[2][1]
-		fld			dword ptr [edx+4]			//	A[0][1]
-		fmul			st(0),st(3)		// A[0][1] * B[1][1]
-		fld			dword ptr [edx]				//	A[0][0]
-		fmul			st(0),st(3)		// A[0][2] * B[0][1]
-		faddp			st(1),st(0)
-		faddp			st(1),st(0)
-		fstp			dword ptr [eax+4]			//	res[0][1]
-
-//		(*set_res)[1][1] = A[1][0]*tmp1 + A[1][1]*tmp2 + A[1][2]*tmp3;
-		fld			dword ptr [edx+24]			//	A[1][2]
-		fmul			st(0),st(3)		// A[1][2] * B[2][1]
-		fld			dword ptr [edx+20]			//	A[1][1]
-		fmul			st(0),st(3)		// A[1][1] * B[1][1]
-		fld			dword ptr [edx+16]			//	A[1][0]
-		fmul			st(0),st(3)		// A[1][0] * B[0][1]
-		faddp			st(1),st(0)
-		faddp			st(1),st(0)
-		fstp			dword ptr [eax+20]			//	res[1][1]
-
-//		(*set_res)[2][1] = A[2][0]*tmp1 + A[2][1]*tmp2 + A[2][2]*tmp3;
-
-		fld			dword ptr [edx+40]			//	A[2][2]
-		fmul			st(0),st(3)		// A[2][2] * B[2][1]
-		fld			dword ptr [edx+36]			//	A[2][1]
-		fmul			st(0),st(3)		// A[2][1] * B[1][1]
-		fld			dword ptr [edx+32]			//	A[2][0]
-		fmul			st(0),st(3)		// A[2][0] * B[0][1]
-		faddp			st(1),st(0)
-		faddp			st(1),st(0)
-		fstp			dword ptr [eax+36]			//	res[2][1]
-
-//		tmp1 = B[0][2];
-//		tmp2 = B[1][2];
-//		tmp3 = B[2][2];
-		fstp			st(0)
-		fstp			st(0)
-		fstp			st(0)
-		fld			dword ptr [ecx+40]			//	B[2][2]
-		fld			dword ptr [ecx+24]			//	B[1][2]
-		fld			dword ptr [ecx+8]			//	B[0][2]
-
-//		(*set_res)[0][2] = (*Aptr)[0][0]*tmp1 + (*Aptr)[0][1]*tmp2 + (*Aptr)[0][2]*tmp3;
-		fld			dword ptr [edx+8]			//	A[0][2]
-		fmul			st(0),st(3)		// A[0][2] * B[2][2]
-		fld			dword ptr [edx+4]			//	A[0][1]
-		fmul			st(0),st(3)		// A[0][1] * B[1][2]
-		fld			dword ptr [edx]				//	A[0][0]
-		fmul			st(0),st(3)		// A[0][2] * B[0][2]
-		faddp			st(1),st(0)
-		faddp			st(1),st(0)
-		fstp			dword ptr [eax+8]			//	res[0][2]
-
-//		(*set_res)[1][2] = A[1][0]*tmp1 + A[1][1]*tmp2 + A[1][2]*tmp3;
-		fld			dword ptr [edx+24]			//	A[1][2]
-		fmul			st(0),st(3)		// A[1][2] * B[2][2]
-		fld			dword ptr [edx+20]			//	A[1][1]
-		fmul			st(0),st(3)		// A[1][1] * B[1][2]
-		fld			dword ptr [edx+16]			//	A[1][0]
-		fmul			st(0),st(3)		// A[1][0] * B[0][2]
-		faddp			st(1),st(0)
-		faddp			st(1),st(0)
-		fstp			dword ptr [eax+24]			//	res[1][2]
-
-//		(*set_res)[2][2] = A[2][0]*tmp1 + A[2][1]*tmp2 + A[2][2]*tmp3;
-
-		fld			dword ptr [edx+40]			//	A[2][2]
-		fmul			st(0),st(3)		// A[2][2] * B[2][2]
-		fld			dword ptr [edx+36]			//	A[2][1]
-		fmul			st(0),st(3)		// A[2][1] * B[1][2]
-		fld			dword ptr [edx+32]			//	A[2][0]
-		fmul			st(0),st(3)		// A[2][0] * B[0][2]
-		faddp			st(1),st(0)
-		faddp			st(1),st(0)
-		fstp			dword ptr [eax+40]			//	res[2][2]
-
-// -------------------------------
-//		tmp1 = B[0][3];
-//		tmp2 = B[1][3];
-//		tmp3 = B[2][3];
-		fstp			st(0)
-		fstp			st(0)
-		fstp			st(0)
-		fld			dword ptr [ecx+44]			//	B[2][3]
-		fld			dword ptr [ecx+28]			//	B[1][3]
-		fld			dword ptr [ecx+12]			//	B[0][3]
-
-//		(*set_res)[0][3] = A[0][0]*tmp1 + A[0][1]*tmp2 + A[0][2]*tmp3 + A[0][3];
-		fld			dword ptr [edx+8]			//	A[0][2]
-		fmul			st(0),st(3)		// A[0][2] * B[2][3]
-		fld			dword ptr [edx+4]			//	A[0][1]
-		fmul			st(0),st(3)		// A[0][1] * B[1][3]
-		fld			dword ptr [edx]				//	A[0][0]
-		fmul			st(0),st(3)		// A[0][2] * B[0][3]
-		faddp			st(1),st(0)
-		faddp			st(1),st(0)
-		fadd			dword ptr [edx+12]			// + A[0][3]
-		fstp			dword ptr [eax+12]			//	res[0][3]
-
-//		(*set_res)[1][3] = A[1][0]*tmp1 + A[1][1]*tmp2 + A[1][2]*tmp3 + A[1][3];
-		fld			dword ptr [edx+24]			//	A[1][2]
-		fmul			st(0),st(3)		// A[1][2] * B[2][3]
-		fld			dword ptr [edx+20]			//	A[1][1]
-		fmul			st(0),st(3)		// A[1][1] * B[1][3]
-		fld			dword ptr [edx+16]			//	A[1][0]
-		fmul			st(0),st(3)		// A[1][0] * B[0][3]
-		faddp			st(1),st(0)
-		faddp			st(1),st(0)
-		fadd			dword ptr [edx+28]			//	+ A[1][3]
-		fstp			dword ptr [eax+28]			//	res[1][3]
-
-//		(*set_res)[2][3] = A[2][0]*tmp1 + A[2][1]*tmp2 + A[2][2]*tmp3 + A[2][3];
-
-		fld			dword ptr [edx+40]			//	A[2][2]
-		fmul			st(0),st(3)		// A[2][2] * B[2][3]
-		fld			dword ptr [edx+36]			//	A[2][1]
-		fmul			st(0),st(3)		// A[2][1] * B[1][3]
-		fld			dword ptr [edx+32]			//	A[2][0]
-		fmul			st(0),st(3)		// A[2][0] * B[0][3]
-		faddp			st(1),st(0)
-		faddp			st(1),st(0)
-		fadd			dword ptr [edx+44]			//	+ A[2][3]
-		fstp			dword ptr [eax+44]			//	res[2][3]
-		fstp			st(0)
-		fstp			st(0)
-		fstp			st(0)
-
-		cmp	eax,ebx
-		jne	not_equal2
-		mov	ecx,12		// copy 12 dwords
-		mov	esi,eax		// set source to tmp
-		mov	edi,set_res	// set destination to set_res
-		rep	movsd			// copy
-not_equal2:
-
-	}
-/*
-	WWDEBUG_SAY(("{%2.2f, %2.2f, %2.2f, %2.2f}, {%2.2f, %2.2f, %2.2f, %2.2f}, {%2.2f, %2.2f, %2.2f, %2.2f}"
-		,res[0][0],res[0][1],res[0][2],res[0][3]
-		,res[1][0],res[1][1],res[1][2],res[1][3]
-		,res[2][0],res[2][1],res[2][2],res[2][3]));
-	WWDEBUG_SAY(("{%2.2f, %2.2f, %2.2f, %2.2f}, {%2.2f, %2.2f, %2.2f, %2.2f}, {%2.2f, %2.2f, %2.2f, %2.2f}"
-		,res2[0][0],res2[0][1],res2[0][2],res2[0][3]
-		,res2[1][0],res2[1][1],res2[1][2],res2[1][3]
-		,res2[2][0],res2[2][1],res2[2][2],res2[2][3]));
-//	res[2][3]=res2[2][3];
-//	res=res2;
-*/
-/*	for (int y=0;y<3;++y) {
-		for (int x=0;x<4;++x) {
-			if (fabs(res2[y][x]-res[y][x])>0.001f) {
-				WWDEBUG_SAY(("x: %d, y: %d, %f != %f",x,y,res2[y][x],res[y][x]));
-				__asm nop
-			}
-		}
-	}
-*/
-/*	WWASSERT(res2[0][0]==res[0][0]);
-	WWASSERT(res2[0][1]==res[0][1]);
-	WWASSERT(res2[0][2]==res[0][2]);
-	WWASSERT(res2[0][3]==res[0][3]);
-	WWASSERT(res2[1][0]==res[1][0]);
-	WWASSERT(res2[1][1]==res[1][1]);
-	WWASSERT(res2[1][2]==res[1][2]);
-	WWASSERT(res2[1][3]==res[1][3]);
-	WWASSERT(res2[2][0]==res[2][0]);
-	WWASSERT(res2[2][1]==res[2][1]);
-	WWASSERT(res2[2][2]==res[2][2]);
-	WWASSERT(res2[2][3]==res[2][3]);
-*/
+	*set_res = res;
 }
-#endif
 
 /***********************************************************************************************
  * Matrix3D::Transform_Min_Max_AABox -- compute transformed axis-aligned box                   *
