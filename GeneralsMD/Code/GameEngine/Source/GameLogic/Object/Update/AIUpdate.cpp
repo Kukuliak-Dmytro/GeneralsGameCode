@@ -1048,7 +1048,8 @@ UpdateSleepTime AIUpdateInterface::update()
 			// Pop to goal - This shouldn't happen (often), but make sure we got to where we're going.
 			Real dx = goalPos.x-getObject()->getPosition()->x;
 			Real dy = goalPos.y-getObject()->getPosition()->y;
-			if (dx*dx+dy*dy>=PATHFIND_CELL_SIZE_F*PATHFIND_CELL_SIZE_F)
+			static const Real PATHFIND_CELL_SIZE_SQR = PATHFIND_CELL_SIZE_F * PATHFIND_CELL_SIZE_F;
+			if (dx*dx+dy*dy >= PATHFIND_CELL_SIZE_SQR)
 			{
 				// Too far, so just grid current pos.
 				goalPos = *getObject()->getPosition();
