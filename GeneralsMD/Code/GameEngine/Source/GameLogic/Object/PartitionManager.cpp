@@ -3397,12 +3397,12 @@ Object *PartitionManager::getClosestObjects(
 					continue;
 				thisMod->friend_setDoneFlag(theIterFlag);
 
+				if (!filtersAllow(filters, thisObj))
+					continue;
+
 				Real thisDistSqr;
 				Coord3D distVec;
 				if (!(*distProc)(objPos, objToUse, thisObj->getPosition(), thisObj, thisDistSqr, distVec, closestDistSqr))
-					continue;
-
-				if (!filtersAllow(filters, thisObj))
 					continue;
 
 				// ok, this is within the range, and the filters allow it.
@@ -3471,14 +3471,14 @@ Object *PartitionManager::getClosestObjects(
 
 			thisMod->friend_setDoneFlag(theIterFlag);
 
+			// check the filters now
+			if (!filtersAllow(filters, thisObj))
+				continue;
+
 			// hmm, ok, calc the distance.
 			Real thisDistSqr;
 			Coord3D distVec;
 			if (!(*distProc)(objPos, objToUse, thisObj->getPosition(), thisObj, &thisDistSqr, &distVec, closestDistSqr))
-				continue;
-
-			// check the filters now
-			if (!filtersAllow(filters, thisObj))
 				continue;
 
 			// ok, guess this is a winner!
