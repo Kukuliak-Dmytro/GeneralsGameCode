@@ -17,6 +17,7 @@
 */
 
 #include "GameLogic/Pathfinder/PathfindCellInfo.h"
+#include "GameLogic/Pathfinder/PathfindCell.h"
 
 constexpr const UnsignedInt CELL_INFOS_TO_ALLOCATE = 120000;
 
@@ -42,7 +43,14 @@ void PathfindCellInfo::recycleUnusedCellInfos()
 			info->m_obstacleID == INVALID_ID && info->m_posUnitID == INVALID_ID &&
 			info->m_goalUnitID == INVALID_ID && info->m_goalAircraftID == INVALID_ID)
 		{
-			releaseACellInfo(info);
+			if (info->m_cell)
+			{
+				info->m_cell->releaseInfo();
+			}
+			else
+			{
+				releaseACellInfo(info);
+			}
 		}
 	}
 }
@@ -143,6 +151,7 @@ void PathfindCellInfo::releaseACellInfo(PathfindCellInfo *theInfo)
 	DEBUG_ASSERTCRASH(!theInfo->m_isFree, ("Shouldn't be free."));
 	//@ todo -fix this assert on usa04.  jba.
 	//DEBUG_ASSERTCRASH(theInfo->m_obstacleID==0, ("Shouldn't be obstacle."));
+	theInfo->m_cell = nullptr;
 	theInfo->m_pathParent = s_firstFree;
 	s_firstFree = theInfo;
 	s_firstFree->m_isFree = true;

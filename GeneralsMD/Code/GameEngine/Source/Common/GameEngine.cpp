@@ -990,6 +990,10 @@ void GameEngine::execute()
 					else
 						RELEASE_CRASH(("Uncaught Exception in GameEngine::update"));
 				}
+				catch (const std::exception &e)
+				{
+					RELEASE_CRASH(("std::exception in GameEngine::update: %s", e.what()));
+				}
 				catch (...)
 				{
 					// try to save info off
