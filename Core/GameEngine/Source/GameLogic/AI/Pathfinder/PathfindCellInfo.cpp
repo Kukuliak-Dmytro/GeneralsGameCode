@@ -18,7 +18,7 @@
 
 #include "GameLogic/Pathfinder/PathfindCellInfo.h"
 
-constexpr const UnsignedInt CELL_INFOS_TO_ALLOCATE = 30000;
+constexpr const UnsignedInt CELL_INFOS_TO_ALLOCATE = 120000;
 
 PathfindCellInfo *PathfindCellInfo::s_infoArray = nullptr;
 PathfindCellInfo *PathfindCellInfo::s_firstFree = nullptr;
