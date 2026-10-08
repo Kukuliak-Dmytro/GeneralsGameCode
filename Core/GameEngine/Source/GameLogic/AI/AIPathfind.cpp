@@ -223,7 +223,7 @@ void Pathfinder::reset()
 	m_zoneManager.reset();
 
 #if RETAIL_COMPATIBLE_PATHFINDING
-	s_useFixedPathfinding = false;
+	s_useFixedPathfinding = true;
 	s_forceCleanCells = false;
 #endif
 
