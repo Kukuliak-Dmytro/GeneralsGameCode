@@ -23,6 +23,30 @@ constexpr const UnsignedInt CELL_INFOS_TO_ALLOCATE = 120000;
 PathfindCellInfo *PathfindCellInfo::s_infoArray = nullptr;
 PathfindCellInfo *PathfindCellInfo::s_firstFree = nullptr;
 
+static UnsignedInt s_usedCount = 0;
+
+UnsignedInt PathfindCellInfo::getUsedCellInfoCount()
+{
+	return s_usedCount;
+}
+
+void PathfindCellInfo::recycleUnusedCellInfos()
+{
+	if (!s_infoArray)
+		return;
+
+	for (UnsignedInt i = 0; i < CELL_INFOS_TO_ALLOCATE; ++i)
+	{
+		PathfindCellInfo* info = &s_infoArray[i];
+		if (!info->m_isFree && !info->m_open && !info->m_closed &&
+			info->m_obstacleID == INVALID_ID && info->m_posUnitID == INVALID_ID &&
+			info->m_goalUnitID == INVALID_ID && info->m_goalAircraftID == INVALID_ID)
+		{
+			releaseACellInfo(info);
+		}
+	}
+}
+
 #if RETAIL_COMPATIBLE_PATHFINDING
 void PathfindCellInfo::forceCleanPathFindCellInfos()
 {
@@ -40,6 +64,7 @@ void PathfindCellInfo::forceCleanPathFindCellInfos()
  */
 void PathfindCellInfo::allocateCellInfos()
 {
+	s_usedCount = 0;
 	releaseCellInfos();
 	s_infoArray = MSGNEW("PathfindCellInfo") PathfindCellInfo[CELL_INFOS_TO_ALLOCATE];	// pool[]ify
 	s_infoArray[CELL_INFOS_TO_ALLOCATE-1].m_pathParent = nullptr;
@@ -69,6 +94,7 @@ void PathfindCellInfo::releaseCellInfos()
 	delete[] s_infoArray;
 	s_infoArray = nullptr;
 	s_firstFree = nullptr;
+	s_usedCount = 0;
 }
 
 /**
@@ -76,11 +102,18 @@ void PathfindCellInfo::releaseCellInfos()
  */
 PathfindCellInfo *PathfindCellInfo::getACellInfo(PathfindCell *cell,const ICoord2D &pos)
 {
+	// Option 1 Fallback: If 50% capacity reached, recycle unused cell infos dynamically
+	if (s_usedCount >= (CELL_INFOS_TO_ALLOCATE * 50 / 100))
+	{
+		recycleUnusedCellInfos();
+	}
+
 	PathfindCellInfo *info = s_firstFree;
 	if (s_firstFree) {
 		DEBUG_ASSERTCRASH(s_firstFree->m_isFree, ("Should be freed."));
 		s_firstFree = s_firstFree->m_pathParent;
 		info->m_isFree = false;  // Just allocated it.
+		s_usedCount++;
 		info->m_cell = cell;
 		info->m_pos = pos;
 
@@ -113,4 +146,6 @@ void PathfindCellInfo::releaseACellInfo(PathfindCellInfo *theInfo)
 	theInfo->m_pathParent = s_firstFree;
 	s_firstFree = theInfo;
 	s_firstFree->m_isFree = true;
+	if (s_usedCount > 0)
+		s_usedCount--;
 }

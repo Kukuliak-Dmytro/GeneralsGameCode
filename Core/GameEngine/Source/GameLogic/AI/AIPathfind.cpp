@@ -223,7 +223,7 @@ void Pathfinder::reset()
 	m_zoneManager.reset();
 
 #if RETAIL_COMPATIBLE_PATHFINDING
-	s_useFixedPathfinding = true;
+	s_useFixedPathfinding = false;
 	s_forceCleanCells = false;
 #endif
 
@@ -2228,6 +2228,8 @@ void Pathfinder::processPathfindQueue()
 	doDebugIcons();
 #endif
 
+	// Option 3 Primary Mechanism: Recycle unused/orphaned cell infos at the end of each frame
+	PathfindCellInfo::recycleUnusedCellInfos();
 }
 
 

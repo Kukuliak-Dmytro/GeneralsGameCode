@@ -30,6 +30,9 @@ public:
 	static void allocateCellInfos();
 	static void releaseCellInfos();
 
+	static void recycleUnusedCellInfos();
+	static UnsignedInt getUsedCellInfoCount();
+
 	static PathfindCellInfo * getACellInfo(PathfindCell *cell, const ICoord2D &pos);
 	static void releaseACellInfo(PathfindCellInfo *theInfo);
 
