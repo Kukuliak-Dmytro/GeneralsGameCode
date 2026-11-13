@@ -11,6 +11,38 @@
 [![GitHub issues by-label](https://img.shields.io/github/issues/TheSuperHackers/GeneralsGameCode/critical?style=flat&label=Critical%20Issues&labelColor=%23c4c4c4&color=%23424242)](https://github.com/TheSuperHackers/GeneralsGameCode/issues?q=label%3ACritical)
 [![GitHub issues by-label](https://img.shields.io/github/issues/TheSuperHackers/GeneralsGameCode/blocker?style=flat&label=Blocker%20Issues&labelColor=%23c4c4c4&color=%23424242)](https://github.com/TheSuperHackers/GeneralsGameCode/issues?q=label%3ABlocker)
 
+# GeneralsGameCode (Contra 009 Stability & Performance Fork)
+
+> [!IMPORTANT]
+> **Fork Notice & Disclaimer**:  
+> This is a community fork maintained by **Kukuliak-Dmytro**, based on the open-source [TheSuperHackers/GeneralsGameCode](https://github.com/TheSuperHackers/GeneralsGameCode) project.  
+> **Disclaimer**: The optimizations and bugfixes in this branch were developed and debugged with the assistance of an AI programming assistant. I am not a professional game developer, but I have general software development knowledge. These changes were developed to resolve severe late-game crashes and multiplayer desyncs encountered when playing heavy unit-spam mods (specifically **Contra 009**), and have been tested with 100% stability in real multi-bot and co-op matches. If you find these fixes helpful, feel free to try them or incorporate relevant parts into upstream!
+
+---
+
+## What is Addressed in this Fork?
+
+This fork specifically targets stability and multiplayer desync issues when running high-load mods like *Contra 009* (e.g. 8-player skirmishes with 1000–1500+ active units):
+
+1. **Pathfinding Recycling Crash Fix (`GameEngine::update` Access Violation)**:
+   - *Problem*: Mid-search garbage-collection inside `PathfindCellInfo::getACellInfo()` was triggering when capacity crossed 50%, releasing the destination cell's info before the A* pathfind completed. This caused null pointer dereferences in `costToGoal()` / `getXIndex()`.
+   - *Fix*: Removed mid-search recycling from `getACellInfo()`. Memory recycling is now cleanly restricted to the end of the frame in `processPathfindQueue()` and gated with a 25% utilization threshold (30,000 nodes).
+   - *Verification*: Tested in an 8-player Chinese Infantry General skirmish (over 5,500 units created/destroyed) without a single crash.
+
+2. **Network Desync / Mismatch Prevention**:
+   - Enforced `/fp:precise` in Release builds (`cmake/compilers.cmake`) to guarantee strict IEEE-754 floating-point determinism across different CPU microarchitectures (Intel vs. AMD).
+   - Synchronized SSE2 `MXCSR` register in `setFPMode()` with Round-to-Nearest, Flush-to-Zero (`FTZ`), and Denormals-are-Zero (`DAZ`).
+   - Expanded pathfinding queue `PATHFIND_QUEUE_LEN` to 2048 to prevent request drops during heavy simultaneous orders.
+
+3. **Automated Mismatch Diagnostics (`MismatchInfo.txt`)**:
+   - In the event of a multiplayer CRC mismatch, `GameLogic::dumpMismatchDiagnostic()` automatically generates a diagnostic report in your user documents folder (`MismatchInfo.txt`), dumping sub-system CRC breakdowns (Objects, PartitionManager, PlayerList, AI, Random Seed) and top active entities to instantly pinpoint desync culprits.
+
+4. **Audio Queue & Performance Optimizations**:
+   - Fixed `MilesAudioManager::processRequestList()` queue overflow drop logic so it drops only unplayed sound requests (`AR_Play`), preserving `AR_Stop` and `AR_Pause` to prevent stuck looping audio effects.
+   - Cleaned up duplicate vector scanline generation in `DiscreteCircle`.
+
+---
+
 # Welcome to the Generals Game Code Project
 
 GeneralsGameCode is a community-driven project aimed at fixing and improving the classic RTS game, *Command &
