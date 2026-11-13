@@ -16,7 +16,7 @@
 > [!IMPORTANT]
 > **Fork Notice & Disclaimer**:  
 > This is a community fork maintained by **Kukuliak-Dmytro**, based on the open-source [TheSuperHackers/GeneralsGameCode](https://github.com/TheSuperHackers/GeneralsGameCode) project.  
-> **Disclaimer**: The optimizations and bugfixes in this branch were developed and debugged with the assistance of an AI programming assistant. I am not a professional game developer, but I have general software development knowledge. These changes were developed to resolve severe late-game crashes and multiplayer desyncs encountered when playing heavy unit-spam mods (specifically **Contra 009**), and have been tested with 100% stability in real multi-bot and co-op matches. If you find these fixes helpful, feel free to try them or incorporate relevant parts into upstream!
+> **Disclaimer**: The optimizations and bugfixes in this branch were developed and debugged with the assistance of an AI programming assistant. I am a software engineer, but not a game developer. These changes were developed to resolve severe late-game crashes and multiplayer desyncs encountered when playing heavy unit-spam mods (specifically **Contra 009**), and have been tested with 100% stability in real multi-bot and co-op matches. If you find these fixes helpful, feel free to try them or incorporate relevant parts into upstream!
 
 ---
 
